@@ -4,7 +4,7 @@ Http-timeout is to HTTP what ```setTimeout``` is to JavaScript.
 
 It is great for triggering timed events in a distributed system:
 
-- Http-timeout is an HTTP server that allows you to register HTTP requests to made at a later time.
+- Http-timeout is an HTTP server that allows you to register HTTP requests to be made at a later time.
 - Pending HTTP reqeusts are stored in a MongoDB database.
 - Single instance of http-timeout runs several processes in a cluster to scale on multi-core machines.
 - Http-timeout scales out to multiple machines by using the same MongoDB database.
@@ -81,3 +81,54 @@ http://localhost?url=https://myservice.com&method=POST&body=startBackup&delay=18
 
 Will issue an HTTP POST request to https://myservice.com with the HTTP request body value of ```startBackup``` in about 30 minutes 
 from now.  
+
+## Configuring http-timeout
+
+Several configuration options can be specified when starting http-timeout:
+
+```
+Usage: node ./http-timeout.js
+
+Options:
+  -m, --mongo         Mongo DB connecton string                              [default: "mongodb://localhost/httpd"]
+  -w, --workers       Number of worker processes                             [default: 4]
+  -p, --port          HTTP listen port                                       [default: 80]
+  -s, --sslport       HTTPS listen port                                      [default: 443]
+  -c, --cert          Server certificate for SSL                             [default: "./cert.pem"]
+  -k, --key           Private key for SSL                                    [default: "./key.pem"]
+  -x, --proxy         HTTP proxy in host:port format for outgoing requests   [default: ""]
+  -l, --lockDuration  Peek lock duration (milliseconds)                      [default: 20000]
+  -i, --peekInterval  Cluster-wide peek interval (milliseconds)              [default: 5000]
+  -a, --maxPostSize   Maximum size of a POST request in bytes                [default: 8192]
+  -t, --maxAttempts   Maximum number of attempts before abandoning an event  [default: 5]
+  -r, --maxRedirects  Maximum number of redirects when delivering the event  [default: 0]
+```
+
+The ```-m``` must specify the URL of the MongoDB database to use. By default it expects an unsecured instance to be running 
+on localhost. Http-timeout will create a ```httpd``` collection in that database if it does not exist already. 
+
+The ```-w``` option specifies the number of worker processes in a cluser. It defaults to the number of processors on the machine.
+
+The ```-p``` and ```-s``` options specify the listen TCP ports for HTTP and HTTPS requests, respetively. In case of HTTPS, 
+server X.509 certificate and assocated private key files in PEM format are provided with ```-c``` and ```-k``` options. 
+Sample cert and key file are checked in to get you started, but you will want to replace them with your own for any serious
+work. 
+
+The ```-x``` option can be used to specify the HTTP proxy host and port for making outgoing HTTP[S] calls. The format is host:port, 
+e.g. ```-x itgproxy:80```. 
+
+The ```-l``` option controls the duration of a peek lock a worker process creaets in the database when picking up requests
+that are due for processing. The worker process subsequently has that much time to issue the requests and - if successful - 
+permanently remove the entry from the database. In case the worker crashes after picking up overdue requests from the database
+or if the requests are unsuaccessful, another attempt to dispatch the requsts will only be made after the lock duration expires. 
+
+The ```-i``` option controls the frequency with which the cluser of http-timeout workers polls the MongoDB database for 
+overdue notifications. With the value of 5000ms and 4 workers in the cluser, each worker will statistically poll every 
+20 seconds.
+
+The ```-a``` option puts the limit on the maximum size of the HTTP POST request body the http-timeout service will accept. 
+
+The ```-t``` option control how many delivery attempts are made for any single notification. Once this number is exceeded, 
+the notification is permanently removed from the database. 
+
+The ```-r``` option controls how many redirects will be followed when issuing notifications. By default reirects are disabled. 
