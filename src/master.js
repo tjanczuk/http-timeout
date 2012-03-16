@@ -8,6 +8,7 @@ function log(thing) {
 exports.main = function (args) {
 	argv = args;
 	log('http-timeout: distributed timeouts for http')
+	log('MongoDB: ' + argv.m)
 	log('Number of workers: ' + argv.w)
 	log('HTTP port: ' + argv.p)
 	log('HTTPS port: ' + argv.s)
